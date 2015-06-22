@@ -25,6 +25,9 @@ data(texasgas)
 library(knitr)
 opts_chunk$set(tidy=TRUE)
 opts_chunk$set(tidy.opts=list(width.cutoff=50))
+
+# Random seed
+set.seed(1)
 ```
 
 # Question 4.1
@@ -318,10 +321,10 @@ model.pls <- train(fingerprints.train, permeability.train,
 plot(model.pls, main="RMSE Error of PLS Model vs Number of Components")
 
 # What is the R^2 value?
-#model.pls$results[model.pls$results$ncomp == 5, 'Rsquared']  # 0.5385791
+#model.pls$results[model.pls$results$ncomp == 5, 'Rsquared']  # 0.5368994
 ```
 
-We see from the above plot that the number of components is 5 when we minimize error, with an R^2 value of 0.5385791.
+We see from the above plot that the number of components is 5 when we minimize error, with an R^2 value of 0.5368994.
 
 (d) Predict the response for the test set. What is the test set estimate of R 2 ?
 
@@ -330,7 +333,7 @@ We see from the above plot that the number of components is 5 when we minimize e
 permeability.predict = predict(model.pls, fingerprints.test)
 
 # Print out predictions and outcomes
-plot(permeability.predict, permeability.test, main="Observed versus Predicted Permeability from PLS Model (n=3)", xlab="Predicted Permeability", ylab="Observed Permeability")
+plot(permeability.predict, permeability.test, main="Observed versus Predicted Permeability from PLS Model (n=5)", xlab="Predicted Permeability", ylab="Observed Permeability")
 abline(0, 1, col='red')
 text(0, 30, paste("R^2 = ", round(cor(permeability.test, permeability.predict)^2, 2)))
 text(0, 27, paste("RMSE = ", round(sqrt(sum((permeability.test - permeability.predict)^2)), 2)))
