@@ -14,6 +14,8 @@ library(fma)
 library(corrplot)
 library(caret)
 library(AppliedPredictiveModeling)
+library(pls)
+library(glmnet)
 
 # Load some data
 data(permeability)
@@ -255,7 +257,6 @@ low frequencies using the nearZeroVar function from the caret package.
 How many predictors are left for modeling?
 
 ```{r}
-
 nearZero <- nearZeroVar(fingerprints)
 length(nearZero) # 719
 
@@ -263,28 +264,26 @@ length(nearZero) # 719
 fingerprints.filtered <- fingerprints[, -nearZero]
 ```
 
-Seems like there are 719 predictors that we can drop because they have near zero variance.
+Seems like there are 719 predictors that we can drop because they have near zero variance. This leaves us with 388 predictors.
 
 (c) Split the data into a training and a test set, pre-process the data, and
 tune a PLS model. How many latent variables are optimal and what is
 the corresponding resampled estimate of R 2 ?
-
-pre-process: remove pairwise correlated predictors ; produce that correlation matrix ; for multicollinearity, check variance inflation value;
-
 
 First, lets look at pairwise correlation amoungst the predictors:
 
 ```{r}
 # Look at correlation matrix (looks ugly)
 correlations <- cor(fingerprints.filtered)
-corrplot(correlations, order = "hclust")
+corrplot::corrplot(correlations, order = "hclust")
 ```
 
-Thats a pretty awful looking chart but we do see significant number of predictors that are correlated. Lets remove them with threshold .75:
+Thats a pretty awful looking chart but we do see significant number of predictors that are correlated(at least I see it in R; the PDF shows nothing). Lets remove them with threshold .90 (I played with this value and going to far with it lowers the R^2 and brings up RMSE):
+
 
 ```{r}
 # Find highly correlated preditors and remove
-highCorr <- findCorrelation(correlations, cutoff = .75)
+highCorr <- findCorrelation(correlations, cutoff = .9)
 fingerprints.filtered <- fingerprints.filtered[, -highCorr]
 ```
 
@@ -293,16 +292,62 @@ The correlation matrix looks much better now:
 ```{r}
 # Much better
 correlations <- cor(fingerprints.filtered)
-corrplot(correlations, order = "hclust")
+corrplot::corrplot(correlations, order = "hclust")
 ```
 
+```{r}
 # Split the data into a training and test set
+fingerprints.train <- fingerprints.filtered[1:124, ]
+fingerprints.test <- fingerprints.filtered[1:124, ]
+permeability.train <- permeability[1:124, ]
+permeability.test <- permeability[1:124, ]
+
+# Train a PLS Model
+model.pls <- train(fingerprints.train, permeability.train,
+                method = "pls",
+                tuneLength = 10,
+                trControl = trainControl(method = "cv"))
+
+# Plot PLS Model to see at which # of components we minimize error
+plot(model.pls, main="RMSE Error of PLS Model vs Number of Components")
+
+# What is the R^2 value?
+#model.pls$results[model.pls$results$ncomp == 5, 'Rsquared']  # 0.5385791
 ```
+
+We see from the above plot that the number of components is 5 when we minimize error, with an R^2 value of 0.5385791.
 
 (d) Predict the response for the test set. What is the test set estimate of R 2 ?
+
+```{r}
+# Predict the permeability based on test set of fingerprints
+permeability.predict = predict(model.pls, fingerprints.test)
+
+# Print out predictions and outcomes
+plot(permeability.predict, permeability.test, main="Observed versus Predicted Permeability from PLS Model (n=3)", xlab="Predicted Permeability", ylab="Observed Permeability")
+abline(0, 1, col='red')
+text(0, 30, paste("R^2 = ", round(cor(permeability.test, permeability.predict)^2, 2)))
+text(0, 27, paste("RMSE = ", round(sqrt(sum((permeability.test - permeability.predict)^2)), 2)))
+```
+
+The graph above shows a plot of observed values versus predicted values for permeability. The red line shown is the y = x line: the closer the values are to the red line, the better. R^2 is only 0.5830192
 
 (e) Try building other models discussed in this chapter. Do any have better
 predictive performance?
 
+Using some ideas from (this link)[http://machinelearningmastery.com/penalized-regression-in-r/], I'll uise glmnet to build a model penalizing both the L1-norm and L2-norm.
+
+```{r}
+glm.model <- glmnet(fingerprints.train, permeability.train, family="gaussian", alpha=0.5, lambda=0.001)
+
+permeability.glm.predict <- predict(glm.model, fingerprints.test)
+plot(permeability.glm.predict, permeability.test, main="Observed versus Predicted Permeability from GLM Model", xlab="Predicted Permeability", ylab="Observed Permeability")
+abline(0, 1, col='red')
+text(0, 30, paste("R^2 = ", round(cor(permeability.test, permeability.glm.predict)^2, 2)))
+text(0, 25, paste("RMSE = ", round(sqrt(sum((permeability.test - permeability.glm.predict)^2)), 2)))
+```
+
 (f) Would you recommend any of your models to replace the permeability
 laboratory experiment?
+
+If we were to recommend a model, it would be the GLM Net model (ie, elasticnet), since it has a high R^2. However, since mistakes in the model may overlook good candidates, I would make sure to tune this as best I could, and confirm the data pre-processing steps taken make sense.
