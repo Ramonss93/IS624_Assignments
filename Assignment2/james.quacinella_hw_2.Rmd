@@ -20,6 +20,11 @@ library(glmnet)
 # Load some data
 data(permeability)
 data(texasgas)
+
+# Formatting options
+library(knitr)
+opts_chunk$set(tidy=TRUE)
+opts_chunk$set(tidy.opts=list(width.cutoff=50))
 ```
 
 # Question 4.1
@@ -41,27 +46,30 @@ fit  <- lm(Mwh ~ temp, data=data4.1)
 abline(fit, col='red')
 ```
 
-**Answer:** As we can see on the above plot, there is a negative relationship between consumption of energy and temperature.
+**Answer:** As we can see on the above plot, there is a negative relationship between consumption of energy and temperature. There is an increase in usage of electricty when the temperature is lower due to homes turning on their heat (I guess the heat systems in these homes are not based on gas, bad data, etc)
 
 b) Produce a residual plot. Is the model adequate? Are there any outliers or influential observations?
 
 ```{r}
 plot(residuals(fit) ~ temp, data=data4.1, main="Residuals Plot")
+abline(0, 0, col='red')
 ```
 
-TODO: look for influential obervations; there is an outlier for sure but otherwise looks like no systemic patterns so the model should be adequate.
+**Answer:** There are some outliers in the data for sure, but otherwise the graph looks like there no systemic patterns so the model should be adequate. If you look at Temperature approx 23, we get to very different numbers for consumption. This could be due to a lot of reasons (i.e, the lower consumption day could have landed on a holiday where many families travelled away, etc).
 
 c) Use the model to predict the electricity consumption that you would expect for a day with maximum temperature 10 degrees and a day with maximum temperature 35 degree. Do you believe these predictions?
-
-(and)
-
 d) Give prediction intervals for your forecasts. 
 
 ```{r}
-forecast(fit, newdata=data.frame(temp=c(10,35)))
+# Generate a prediction for temp = 10 and 35
+forecast <- forecast(fit, newdata=data.frame(temp=c(10, 35)))
+plot(forecast, xlab="Temperature (C)", ylab="Electricity Consumption (MWh)")
+
+# Show the actual intervals for each prediction
+forecast
 ```
 
-TODO: explain
+**Answer:** I think I would believe these predictions, but we should be leary as we get further away from the data set we have. The prediction we have for 10 is well within the historical data, but as we extrapolate further out to 35, it looks like the model might be getting inaccurate.
 
 
 # Question 5.2
@@ -70,7 +78,7 @@ The data below (data set texasgas) shows the demand for natural gas and the pric
 
 a) Do a scatterplot of consumption against price. The data are clearly not linear. Three possible nonlinear models for the data are given below; The second model divides the data into two sections, depending on whether the price is above or below 60 cents per 1,000 cubic feet.
 
-```{r tidy=TRUE, tidy.opts=list(width.cutoff=60)}
+```{r}
 plot(consumption ~ price, data=texasgas, main="Consumption versus Price of Natural Gas In Texas, 1969", xlab="Price of Natural Gas", ylab="Consumption")
 ```
 
@@ -97,8 +105,6 @@ model1.predict <- function(input) {
 # Plot Model1 and Data
 plot(consumption ~ price, data=texasgas, main="(Model 1) Consumption versus Price of Natural Gas In Texas, 1969", xlab="Price of Natural Gas", ylab="Consumption")
 lines(prices, model1.predict(prices), col='red')
-
-
 ```
 
 \pagebreak
@@ -142,12 +148,12 @@ lines(prices, model3.predict(prices), col='red')
 
 d) For each model, find the value of R2 and AIC, and produce a residual plot. Comment on the adequacy of the three models.
 
-**Answer**: I am a bit surprised: From the R squared and AIC measures, Model 2 would be considered the best. Eyeballing it, I probably would have picked Model 3, which goes to show you why you don't eyeball these matters.
+**Answer**: I am a bit surprised: From the R squared and AIC measures, Model 2 would be considered the best. Eyeballing it, I probably would have picked Model 3, which goes to show you why you don't eyeball these matters. Model2 is interesting because it is jagged at the inflextion point of P=60. Predictions around here are going to take a discontinuous jump around this point.
 
-Model2 is interesting because it is jagged at the inflextion point of P=60. Predictions around here are going to take a discontinuous jump around this point.
+The residual plots all look random to me, so from that metric these models are adequate. Model two seems to be the best overall pick from looking at the R^2 and AIC metrics.
 
 
-```{r fig.hold="TRUE"}
+```{r fig.show="hold"}
 N <- nrow(texasgas)
 model1.residuals <- texasgas$consumption - model1.predict(texasgas$price)
 model1.rsquared <- cor(texasgas$consumption, model1.predict(texasgas$price))
@@ -159,14 +165,16 @@ model1.AIC <- N * log(model1.SSE / N) + 2 * (model1.k + 2)
 plot(texasgas$price, model1.residuals, main="Residuals versus Price (model1)", xlab="Price", ylab="Residuals")
 text(90, 40, labels=c(paste("R^2 = ",  round(model1.rsquared, digits=2))))
 text(90, 35, labels=c(paste("AIC = ",  round(model1.AIC, digits=2))))
+abline(0, 0, col='red')
 
 # Plot residuals versus predicted consumption
-plot(model1.predict(texasgas$price), model1.residuals, main="Residuls versus Consumption (model1)", xlab="Consumption", ylab="Residuals")
+plot(model1.predict(texasgas$price), model1.residuals, main="Residuals versus Consumption (model1)", xlab="Consumption", ylab="Residuals")
+abline(0, 0, col='red')
 ```
 
 \pagebreak
 
-```{r fig.hold="TRUE"}
+```{r fig.show="hold"}
 model2.residuals <- resid(model2)
 model2.rsquared <- cor(texasgas$consumption, model2.predict(texasgas$price))
 model2.SSE <- sum(model2.residuals^2)
@@ -177,14 +185,16 @@ model2.AIC <- N * log(model2.SSE / N) + 2 * (model2.k + 2)
 plot(texasgas$price, model2.residuals, main="Residuals versus Price (model2)", xlab="Price", ylab="Residuals")
 text(90, 20, labels=c(paste("R^2 = ",  round(model2.rsquared, digits=2))))
 text(90, 15, labels=c(paste("AIC = ",  round(model2.AIC, digits=2))))
+abline(0, 0, col='red')
 
 # Plot residuals versus predicted consumption
-plot(model2.predict(texasgas$price), model2.residuals, main="Residuls versus Consumption (model1)", xlab="Consumption", ylab="Residuals")
+plot(model2.predict(texasgas$price), model2.residuals, main="Residuals versus Consumption (model1)", xlab="Consumption", ylab="Residuals")
+abline(0, 0, col='red')
 ```
 
 \pagebreak
 
-```{r fig.hold="TRUE"}
+```{r fig.show="hold"}
 model3.residuals <- resid(model3)
 model3.SSE <- sum(model3.residuals^2)
 model3.k <- 2   # Two predictors
@@ -196,11 +206,15 @@ par(mfrow=c(1,2))
 plot(texasgas$price, model3.residuals, main="Residuals versus Price (model3)", xlab="Price", ylab="Residuals")
 text(80, 20, labels=c(paste("R^2 = ",  round(model3.rsquared, digits=2))))
 text(80, 15, labels=c(paste("AIC = ",  round(model3.AIC, digits=2))))
-plot(texasgas$price_squared, model3.residuals, main="Residuls versus Price Squared (model3)", xlab="Price Squared", ylab="Residuals")
+abline(0, 0, col='red')
+
+plot(texasgas$price_squared, model3.residuals, main="Residuals versus Price Squared (model3)", xlab="Price Squared", ylab="Residuals")
+abline(0, 0, col='red')
 
 # Plot residuals versus predicted consumption
 par(mfrow=c(1,1))
 plot(model3.predict(texasgas$price), model3.residuals, main="Residuls versus Consumption (model3)", xlab="Consumption", ylab="Residuals")
+abline(0, 0, col='red')
 ```
 
 f) For prices 40, 60, 80, 100, and 120 cents per 1,000 cubic feet, compute the forecasted per capita demand using the best model of the three above.
@@ -215,23 +229,15 @@ g) Compute 95% prediction intervals. Make a graph of these prediction intervals 
 
 
 ```{r}
-# Calculate intervals
-#for(price in prices) {
-#  print(ifelse(price <= 60, predict(model2, data.frame(priceLess60=c(price), dummy1=c(1), #dummy2=c(0), priceGreater60=c(0)), interval="predict"), predict(model2, data.frame#(priceLess60=c(0), dummy1=c(0), dummy2=c(1), priceGreater60=c(price)), interval="predict")))
-#}
-
 # Print intervals w/ predictions
 texasgas_predict <- data.frame(texasgas, predict(model2, interval = 'prediction'))
 ggplot(texasgas_predict, aes(x=price, y=consumption)) + geom_point()  +  geom_ribbon(aes(y = fit, ymin = lwr, ymax = upr, fill = 'prediction'), alpha=0.2) + geom_point(aes(y=fit), colour='blue') + ggtitle("Predictions and 95% Prediction Interval") + xlab("Price") + ylab("Consumption")
-
 ```
-
 
 h) What is the correlation between P and P2? Does this suggest any general problem to be considered in dealing with polynomial regressions---especially of higher orders? 
 
-**Answer:** As we can see below, the correlation is very high
+**Answer:** As we can see below, the correlation is very high. Generally speaking, having two predictors that are highly correlated can pose problems for some machine learning models, so care must be taken when adding non-linear terms.
 
-TODO: expand on this
 
 ```{r}
 cor(texasgas$price, texasgas$price_squared)
