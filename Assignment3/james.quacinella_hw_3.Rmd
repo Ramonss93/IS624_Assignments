@@ -1,0 +1,268 @@
+---
+title: "Is624 Assignment3"
+author: "James Quacinella"
+date: "06/22/2015"
+output: 
+  pdf_document:
+    toc: yes
+theme: journal
+---
+
+```{r include=FALSE}
+# Init
+library(caret)
+library(mlbench)
+library(AppliedPredictiveModeling)
+
+# Non-Linear Models
+library(nnet)         # Neural Net Models
+library(earth)        # MARS models
+library(kernlab)      # Support vector machines
+
+# Formatting options
+library(knitr)
+opts_chunk$set(tidy=TRUE)
+opts_chunk$set(tidy.opts=list(width.cutoff=50))
+
+# Random seed
+set.seed(1)
+
+# Data Imports
+data(permeability)
+```
+
+
+# Question 7.2
+
+## Question
+
+Friedman (1991) introduced several benchmark data sets create by simulation. 
+One of these simulations used the following nonlinear equation to create data:
+
+$$y = 10sin(n x_{1} x_{2}) + 20(x_{3} - 0.5) 2 + 10x_{4} + 5x_{5} + N(0, alpha^2 )$$
+
+where the x values are random variables uniformly distributed between [0, 1]
+(there are also 5 other non-informative variables also created in the simula-
+tion). The package mlbench contains a function called mlbench.friedman1 that
+simulates these data:
+
+```{r}
+trainingData <- mlbench.friedman1(200, sd = 1)
+## We convert the ' x ' data from a matrix to a data frame
+## One reason is that this will give the columns names.
+trainingData$x <- data.frame(trainingData$x)
+## Look at the data using
+featurePlot(trainingData$x, trainingData$y)
+## or other methods.
+## This creates a list with a vector ' y ' and a matrix
+## of predictors ' x ' . Also simulate a large test set to
+## estimate the true error rate with good precision:
+testData <- mlbench.friedman1(5000, sd = 1)
+testData$x <- data.frame(testData$x)
+```
+
+Tune several models on these data. For example:
+
+```{r}  
+knnModel <- train(x = trainingData$x, y = trainingData$y, method = "knn", preProc = c("center", "scale"), tuneLength = 10)
+
+knnModel
+
+knnPred <- predict(knnModel, newdata = testData$x)
+## The function ' postResample ' can be used to get the test set
+## perforamnce values
+postResample(pred = knnPred, obs = testData$y)
+```
+
+\pagebreak 
+
+## Answer 
+
+A kNN model was generated for us above. We have three options: train a neural network, a MARS model, and a SVM model (with potentially different kernels). Lets first look at a neural net model.
+
+### Neural Net Model
+
+```{r}
+# Create a Neural Net model
+nnetFit <- nnet(trainingData$x, trainingData$y,
+                size = 5,
+                decay = 0.01,
+                linout = TRUE,
+                trace = FALSE,
+                maxit = 500,
+                MaxNWts = 5 * (ncol(trainingData$x) + 1) + 5 + 1)
+
+# Show the fit
+nnetFit
+summary(nnetFit)
+
+# Predict on the test set and see how well it did
+nnetPredict <- predict(nnetFit, testData$x)
+postResample(pred = nnetPredict, obs = testData$y)
+```
+
+**Discussion:** This basic model ends up with a high $R^2$ with no tuning of any model parameters. Lets see what we can do with better tuning.
+
+**TODO:** Grid search params using train like example in book
+
+\pagebreak
+
+### MARS Model
+
+```{r}
+# Create a MARS model
+marsFit <- earth(trainingData$x, trainingData$y)
+
+# Show the fit
+marsFit
+summary(marsFit)
+
+# Predict on the test set and see how well it did
+marsPredict <- predict(marsFit, testData$x)
+postResample(pred = marsPredict, obs = testData$y)
+
+# Inspect the model's use of predictors
+plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
+```
+
+**Discussion:** It does seem like the first 5 predictors are noted as important, and left the other predictors out. Pretty impressive there, MARS.
+
+\pagebreak
+
+### Support Vector Machine Model
+
+```{r}
+svmFit <- ksvm(y ~ ., data=as.data.frame(trainingData),
+                kernel="rbfdot", 
+               kpar="automatic", C=1, epsilon=0.1)
+
+svmFit
+summary(svmFit)
+
+svmPredict <- predict(svmFit, as.data.frame(testData))
+postResample(pred = svmPredict, obs = testData$y)
+```
+
+Lets tune a hopefuly better SVM model:
+
+```{r}
+svmRTuned <- train(trainingData$x, trainingData$y,
+                  method = "svmRadial",
+                  preProc = c("center", "scale"),
+                  tuneLength = 14,
+                  trControl = trainControl(method = "cv"))
+
+svmRTuned
+summary(svmRTuned)
+
+svmTunedPredict <- predict(svmRTuned, testData$x)
+postResample(pred = svmTunedPredict, obs = testData$y)
+```
+
+**TODO:** Try other kernels
+
+\pagebreak
+
+# Question 7.4
+
+## Question
+
+Return to the permeability problem outlined in Exercise 6.2. Train 
+several nonlinear regression models and evaluate the resampling and test set
+performance.
+
+(a) Which nonlinear regression model gives the optimal resampling and test
+set performance?
+
+(b) Do any of the nonlinear models outperform the optimal linear model you
+previously developed in Exercise 6.2? If so, what might this tell you about
+the underlying relationship between the predictors and the response?
+
+(c) Would you recommend any of the models you have developed to replace
+the permeability laboratory experiment?
+
+## Answer
+
+Like above, we will try out three kinds of models, and we'll see which one does
+the best and if these models are better than the linear models created in the previous 
+assignment.
+
+### Data Pre-Processing
+
+Before creating models, we should make sure the data is properly pre-processed. I will
+follow the same exact moethodology as per the previous assignment:
+
+```{r}
+# Get rid of any predictors that are nero-zero variance
+nearZero <- nearZeroVar(fingerprints)
+fingerprints.filtered <- fingerprints[, -nearZero]
+
+# Filter out highly correlated predictors
+correlations <- cor(fingerprints.filtered)
+highCorr <- findCorrelation(correlations, cutoff = .9)
+fingerprints.filtered <- fingerprints.filtered[, -highCorr]
+
+# Split the data into a training and test set
+fingerprints.train <- fingerprints.filtered[1:124,]
+fingerprints.test <- fingerprints.filtered[1:124,]
+permeability.train <- permeability[1:124, ]
+permeability.test <- permeability[1:124, ]
+```
+
+The three models will be presented next, with results to follow.
+
+\pagebreak
+
+### Neural Net Model
+
+```{r}
+```{r}
+# Create a Neural Net model
+nnetFit <- nnet(fingerprints.train, permeability.train,
+                size = 5,
+                decay = 0.01,
+                linout = TRUE,
+                trace = FALSE,
+                maxit = 500,
+                MaxNWts = 5 * (ncol(fingerprints.test) + 1) + 5 + 1)
+
+# Show the fit
+nnetFit
+summary(nnetFit)
+
+# Predict on the test set and see how well it did
+nnetPredict <- predict(nnetFit, fingerprints.test)
+postResample(pred = nnetPredict, obs = permeability.test)
+```
+
+**Discussion:**
+
+\pagebreak
+
+### MARS Model
+
+```{r}
+# Create a MARS model
+marsFit <- earth(fingerprints.train, permeability.train)
+
+# Show the fit
+marsFit
+summary(marsFit)
+
+# Predict on the test set and see how well it did
+marsPredict <- predict(marsFit, fingerprints.test)
+postResample(pred = marsPredict, obs = permeability.test)
+
+# Inspect the model's use of predictors
+plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
+```
+
+**Discussion:**
+
+\pagebreak
+
+### Support Vector Machine Model
+
+\pagebreak
+
+## Results and Discussions
