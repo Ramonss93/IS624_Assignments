@@ -132,13 +132,16 @@ plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
 ### Support Vector Machine Model
 
 ```{r}
+# Create a SVM model
 svmFit <- ksvm(y ~ ., data=as.data.frame(trainingData),
                 kernel="rbfdot", 
                kpar="automatic", C=1, epsilon=0.1)
 
+# Show the fit
 svmFit
 summary(svmFit)
 
+# Predict on the test set and see how well it did
 svmPredict <- predict(svmFit, as.data.frame(testData))
 postResample(pred = svmPredict, obs = testData$y)
 ```
@@ -146,15 +149,18 @@ postResample(pred = svmPredict, obs = testData$y)
 Lets tune a hopefuly better SVM model:
 
 ```{r}
+# Create a tuned SVM model
 svmRTuned <- train(trainingData$x, trainingData$y,
                   method = "svmRadial",
                   preProc = c("center", "scale"),
                   tuneLength = 14,
                   trControl = trainControl(method = "cv"))
 
+# Show the fit
 svmRTuned
 summary(svmRTuned)
 
+# Predict on the test set and see how well it did
 svmTunedPredict <- predict(svmRTuned, testData$x)
 postResample(pred = svmTunedPredict, obs = testData$y)
 ```
@@ -228,7 +234,7 @@ nnetFit <- nnet(fingerprints.train, permeability.train,
 
 # Show the fit
 nnetFit
-summary(nnetFit)
+#summary(nnetFit)
 
 # Predict on the test set and see how well it did
 nnetPredict <- predict(nnetFit, fingerprints.test)
@@ -262,6 +268,41 @@ plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
 \pagebreak
 
 ### Support Vector Machine Model
+
+```{r}
+df.fingerprints.train <- as.data.frame(fingerprints.train)
+df.fingerprints.train$y <- permeability.train
+df.fingerprints.test <- as.data.frame(fingerprints.test)
+
+svmFit <- ksvm(y ~ ., data=df.fingerprints.train,
+                kernel="rbfdot", 
+               kpar="automatic", C=1, epsilon=0.1)
+
+svmFit
+summary(svmFit)
+
+svmPredict <- predict(svmFit, df.fingerprints.test)
+postResample(pred = svmPredict, obs = permeability.test)
+```
+
+Lets tune a hopefuly better SVM model:
+
+```{r}
+svmRTuned <- train(fingerprints.train, permeability.train,
+                  method = "svmRadial",
+                  preProc = c("center", "scale"),
+                  tuneLength = 14,
+                  trControl = trainControl(method = "cv"))
+
+svmRTuned
+summary(svmRTuned)
+
+svmTunedPredict <- predict(svmRTuned, fingerprints.test)
+postResample(pred = svmTunedPredict, obs = permeability.test)
+```
+
+**Discussion:**
+
 
 \pagebreak
 
