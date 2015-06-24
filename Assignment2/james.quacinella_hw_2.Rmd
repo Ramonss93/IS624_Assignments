@@ -2,7 +2,9 @@
 title: "IS624 - Assignment 1"
 author: "James Quacinella"
 date: "06/19/2015"
-output: pdf_document
+output: 
+  pdf_document:
+    toc: yes
 theme: journal
 ---
 
