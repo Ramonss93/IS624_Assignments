@@ -1,5 +1,5 @@
 ---
-title: "Is624 Assignment3"
+title: "IS624 Assignment3"
 author: "James Quacinella"
 date: "06/22/2015"
 output: 
@@ -46,7 +46,7 @@ where the x values are random variables uniformly distributed between [0, 1]
 tion). The package mlbench contains a function called mlbench.friedman1 that
 simulates these data:
 
-```{r}
+```{r fig.width=9}
 trainingData <- mlbench.friedman1(200, sd = 1)
 ## We convert the ' x ' data from a matrix to a data frame
 ## One reason is that this will give the columns names.
@@ -83,13 +83,21 @@ A kNN model was generated for us above. We have three options: train a neural ne
 ### Neural Net Model
 
 ```{r}
+# Using train() led to worse results, and I am not sure what the
+# difference is in using train versus nnet 
+#
+#nnetGrid <- expand.grid(.decay = c(0.01), .size=c(5))
+#nnetFit <- train(trainingData$x, trainingData$y,
+#                method = "nnet",
+#                linout = TRUE,
+#                trace = FALSE,
+#                maxit = 500,
+#                tuneGrid = nnetGrid,
+#                MaxNWts = 5 * (ncol(trainingData$x) + 1) + 5 + 1)
+
 # Create a Neural Net model
-nnetFit <- nnet(trainingData$x, trainingData$y,
-                size = 5,
-                decay = 0.01,
-                linout = TRUE,
-                trace = FALSE,
-                maxit = 500,
+nnetFit <- nnet(trainingData$x, trainingData$y, size = 5,
+                decay = 0.01, linout = TRUE, trace = FALSE, maxit = 500,
                 MaxNWts = 5 * (ncol(trainingData$x) + 1) + 5 + 1)
 
 # Show the fit
@@ -101,9 +109,7 @@ nnetPredict <- predict(nnetFit, testData$x)
 postResample(pred = nnetPredict, obs = testData$y)
 ```
 
-**Discussion:** This basic model ends up with a high $R^2$ with no tuning of any model parameters. Lets see what we can do with better tuning.
-
-**TODO:** Grid search params using train like example in book
+**Discussion:** This basic model ends up with a high $R^2$ with no tuning of any model parameters. However, I tried creating a model using tain() instead of nnet(), but the results seemed worse off for some reason. I am not sure what the difference is between train() and using the model directly.
 
 \pagebreak
 
@@ -122,10 +128,31 @@ marsPredict <- predict(marsFit, testData$x)
 postResample(pred = marsPredict, obs = testData$y)
 
 # Inspect the model's use of predictors
-plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
+plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Tuned Model")
 ```
 
-**Discussion:** It does seem like the first 5 predictors are noted as important, and left the other predictors out. Pretty impressive there, MARS.
+**Discussion:** It does seem like the first 5 predictors are noted as important, and left the other predictors out. Pretty impressive there, MARS. Lets try what the book has for tuning this model:
+
+```{r}
+marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
+marsTuned <- train(trainingData$x, trainingData$y, method = "earth",
+                  tuneGrid = marsGrid, 
+                  trControl = trainControl(method = "cv"))
+
+marsTuned
+#summary(marsTuned)
+
+# Predict on the test set and see how well it did
+marsPredictTuned <- predict(marsTuned, testData$x)
+postResample(pred = marsPredictTuned, obs = testData$y)
+
+# Inspect the model's use of predictors (notice this does not work here as
+# I get an error about wrong types; assuming this only works for models 
+# from using earth())
+#plotmo(marsTuned, caption="Predictors vs Observed in Additive MARS Tuned Model")
+```
+
+This model does even better, with an $R^2$ of 0.935!
 
 \pagebreak
 
@@ -148,24 +175,43 @@ postResample(pred = svmPredict, obs = testData$y)
 
 Lets tune a hopefuly better SVM model:
 
-```{r}
-# Create a tuned SVM model
-svmRTuned <- train(trainingData$x, trainingData$y,
-                  method = "svmRadial",
-                  preProc = c("center", "scale"),
-                  tuneLength = 14,
-                  trControl = trainControl(method = "cv"))
+```{r results='hold'}
+# Create a tuned SVM model w/ a radial kernel
+svmRTuned.radial <- train(trainingData$x, trainingData$y,
+                        method = "svmRadial",
+                        preProc = c("center", "scale"),
+                        tuneLength = 14,
+                        trControl = trainControl(method = "cv"))
 
 # Show the fit
-svmRTuned
-summary(svmRTuned)
+#svmRTuned.radial
+#summary(svmRTuned.radial)
 
 # Predict on the test set and see how well it did
-svmTunedPredict <- predict(svmRTuned, testData$x)
-postResample(pred = svmTunedPredict, obs = testData$y)
+svmTunedPredict.radial <- predict(svmRTuned.radial, testData$x)
+print("SVM Model with Radial Kernel")
+postResample(pred = svmTunedPredict.radial, obs = testData$y)
+
+
+
+# Create a tuned SVM model w/ a polynomial kernel
+svmRTuned.poly <- train(trainingData$x, trainingData$y,
+                        method = "svmPoly",
+                        preProc = c("center", "scale"),
+                        tuneLength = 3,
+                        trControl = trainControl(method = "cv"))
+
+# Show the fit
+#svmRTuned.poly
+#summary(svmRTuned.poly)
+
+# Predict on the test set and see how well it did
+svmTunedPredict.poly <- predict(svmRTuned.poly, testData$x)
+print("SVM Model with Poly Kernel")
+postResample(pred = svmTunedPredict.poly, obs = testData$y)
 ```
 
-**TODO:** Try other kernels
+An SVM model with a radial kernel works best with an $R^2$ of 0.84. The overall results show that the Nueral Bet model and the MARS model work the best with the models explaining 90%+ of the variance in the data.
 
 \pagebreak
 
@@ -189,14 +235,13 @@ the permeability laboratory experiment?
 
 ## Answer
 
-Like above, we will try out three kinds of models, and we'll see which one does
+Like above, we will try out four kinds of models, and we'll see which one does
 the best and if these models are better than the linear models created in the previous 
 assignment.
 
 ### Data Pre-Processing
 
-Before creating models, we should make sure the data is properly pre-processed. I will
-follow the same exact moethodology as per the previous assignment:
+Before creating models, we should make sure the data is properly pre-processed. I will follow the same exact moethodology as per the previous assignment:
 
 ```{r}
 # Get rid of any predictors that are nero-zero variance
@@ -241,9 +286,22 @@ nnetPredict <- predict(nnetFit, fingerprints.test)
 postResample(pred = nnetPredict, obs = permeability.test)
 ```
 
-**Discussion:**
-
 \pagebreak
+
+### KNN Model
+
+```{r}
+# Create a KNN model
+# Without trControl = trainControl(method = "cv"), this does even worse
+knnFit <- train(x = fingerprints.train, y = permeability.train, method = "knn", tuneLength = 10, preProc = c("center", "scale"), tuneGrid = data.frame(.k=1:20), trControl = trainControl(method = "cv"))
+
+# Show the model
+knnFit
+
+# Lets make predictions for the test set
+knnPred <- predict(knnFit, newdata = fingerprints.test)
+postResample(pred = knnPred, obs = permeability.test)
+```
 
 ### MARS Model
 
@@ -253,7 +311,7 @@ marsFit <- earth(fingerprints.train, permeability.train)
 
 # Show the fit
 marsFit
-summary(marsFit)
+#summary(marsFit)
 
 # Predict on the test set and see how well it did
 marsPredict <- predict(marsFit, fingerprints.test)
@@ -262,8 +320,6 @@ postResample(pred = marsPredict, obs = permeability.test)
 # Inspect the model's use of predictors
 plotmo(marsFit, caption="Predictors vs Observed in Additive MARS Model")
 ```
-
-**Discussion:**
 
 \pagebreak
 
@@ -279,7 +335,7 @@ svmFit <- ksvm(y ~ ., data=df.fingerprints.train,
                kpar="automatic", C=1, epsilon=0.1)
 
 svmFit
-summary(svmFit)
+#summary(svmFit)
 
 svmPredict <- predict(svmFit, df.fingerprints.test)
 postResample(pred = svmPredict, obs = permeability.test)
@@ -295,15 +351,31 @@ svmRTuned <- train(fingerprints.train, permeability.train,
                   trControl = trainControl(method = "cv"))
 
 svmRTuned
-summary(svmRTuned)
+#summary(svmRTuned)
 
 svmTunedPredict <- predict(svmRTuned, fingerprints.test)
 postResample(pred = svmTunedPredict, obs = permeability.test)
 ```
 
-**Discussion:**
-
-
 \pagebreak
 
 ## Results and Discussions
+
+Lets comapre all the models in one spot:
+
+```{r results='hold'}
+print("Neural Net Performance")
+postResample(pred = nnetPredict, obs = permeability.test)
+print("KNN Performance")
+postResample(pred = knnPred, obs = permeability.test)
+print("MARS Performance")
+postResample(pred = marsPredict, obs = permeability.test)
+print("SVM Performance")
+postResample(pred = svmPredict, obs = permeability.test)
+print("SVM Tuned Performance")
+postResample(pred = svmTunedPredict, obs = permeability.test)
+```
+
+It looks like the tuned SVM model the Neural Net model do really well and are the best of the non-linear models checked here.
+
+In my previous assignment, I was able to get a linear model with an $R^2$ of .91, so I would only recommend the Neural Net model since it seems to have better performance. I might recommend the tuned SVM model as another potential contender because it has a similar $R^2$ to the best linear model. However, most other linear models had much worse results, and was only able to get near the non-linear models with regularization. This suggests that the data does have some non-linearity to it.
