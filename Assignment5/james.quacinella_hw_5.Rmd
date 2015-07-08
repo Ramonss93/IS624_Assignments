@@ -1,0 +1,27 @@
+---
+title: "IS624 - Assignment5"
+author: "James Quacinella"
+date: "07/07/2015"
+output: 
+  pdf_document:
+    toc: yes
+theme: journal
+---
+
+```{r include=FALSE}
+# Init
+library(AppliedPredictiveModeling)
+library(caret)
+library(mlbench)
+
+# Display options
+library(knitr)
+opts_chunk$set(tidy=TRUE)
+opts_chunk$set(tidy.opts=list(width.cutoff=50))
+
+# Random seed (using 200 since everyone seems to use it, makes results more comparable)
+set.seed(200)
+
+# Data Imports
+data(permeability)
+```
