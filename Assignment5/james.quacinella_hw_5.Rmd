@@ -386,7 +386,7 @@ lines(visitors.ets.forecast$mean, col="blue", type='o')
 lines(visitors.ets.additive.forecast$mean, col="red", type='o')
 lines(visitors.seasonal.naive$mean, col="green", type='o')
 lines(InvBoxCox(visitors.stl.ets.forecast$mean, visitors.lambda), col="#fdae61", type='o')
-legend("bottomright", inset=c(0,0), legend=c("Holt-Winters' seasonal mult", "ETS", "ETS Additive", "Seasonal Naive", "STL then ETS"), lty=c(1,1,1,1), lwd=c(2.5, 2.5, 2.5, 2.5), col=c("purple","blue","red","green", "#fdae61"))
+legend("bottomright", inset=c(0,0), legend=c("Holt-Winters' seasonal mult", "ETS", "ETS Additive", "Seasonal Naive", "STL then ETS"), lty=c(1,1,1,1), lwd=c(2.5, 2.5, 2.5, 2.5), col=c("purple","blue","red","green", "#fdae61"), cex=.5)
 
 
 
