@@ -10,9 +10,11 @@ theme: journal
 
 ```{r include=FALSE}
 # Init
-library(AppliedPredictiveModeling)
+library(fma)
+library(fpp)
 library(caret)
 library(mlbench)
+library(forecast)
 
 # Display options
 library(knitr)
@@ -23,5 +25,377 @@ opts_chunk$set(tidy.opts=list(width.cutoff=50))
 set.seed(200)
 
 # Data Imports
-data(permeability)
+data(plastics)
 ```
+
+\pagebreak
+
+# Question 6.1
+
+Show that a 3×5 MA is equivalent to a 7-term weighted moving average with weights of 0.067, 0.133, 0.200, 0.200, 0.200, 0.133, and 0.067.
+
+Answer: 
+
+MA: $\hat{T}_{t} = \frac{1}{m} \sum\limits_{j=-k}^k y_{t+j}$
+
+With $m = 5, k = 2$:
+$$\hat{T}_{5,t} = \frac{1}{5} \sum\limits_{j=-2}^2 y_{t+j}$$
+$$= \frac{1}{5} * (y_{t-2} + y_{t-1} + y_{t} + y_{t+1} + y_{t+2})$$
+
+
+With $m = 3, k = 1$:
+$$\hat{T}_{3,t} = \frac{1}{3} \sum\limits_{j=-1}^1 y_{t+j}$$
+$$= \frac{1}{3} * (y_{t-1} + y_{t} + y_{t+1})$$
+
+To find 3 x 5 MA, the $y$ values in the above equation are the values from $\hat{T}_{5,t}$:
+
+$$\hat{T}_{3x5,t} = \frac{1}{3} \sum\limits_{j=-1}^1 y_{t+j}$$
+$$= \frac{1}{3} * (\hat{T}_{5,t-1} + \hat{T}_{t} + \hat{T}_{5,t+1})$$
+
+The three terms above:
+
+$$\hat{T}_{5,t-1} = \frac{1}{5}y_{t-3} + \frac{1}{5}y_{t-2} + \frac{1}{5}y_{t-1} + \frac{1}{5}y_{t} + \frac{1}{5}y_{t+1} + 0 * y_{t+2} + 0 * y_{t+3} $$
+
+$$\hat{T}_{t} = 0 * y_{t-3} + \frac{1}{5}y_{t-2} + \frac{1}{5}y_{t-1} + \frac{1}{5}y_{t} + \frac{1}{5}y_{t+1} + \frac{1}{5} * y_{t+2} + 0 * y_{t+3} $$
+
+$$\hat{T}_{5,t+1} = 0 * y_{t-3} + 0 * y_{t-2} + \frac{1}{5}y_{t-1} + \frac{1}{5}y_{t} + \frac{1}{5}y_{t+1} + \frac{1}{5} * y_{t+2} + \frac{1}{5}y_{t+3} $$
+
+Adding them together:
+
+$$\hat{T}_{5,t-1} + \hat{T}_{t} + \hat{T}_{5,t+1} = $$
+$$ \frac{1}{5}y_{t-3} + \frac{2}{5}y_{t-2} + \frac{3}{5}y_{t-1} + \frac{3}{5}y_{t} + \frac{3}{5}y_{t+1} + \frac{2}{5} * y_{t+2} + \frac{1}{5}y_{t+3} $$
+
+Substituting:
+
+$$\hat{T}_{3x5,t} = \frac{1}{3} * (\hat{T}_{5,t-1} + \hat{T}_{t} + \hat{T}_{5,t+1})$$
+$$=\frac{1}{15}y_{t-3} + \frac{2}{15}y_{t-2} + \frac{1}{5}y_{t-1} + \frac{1}{5}y_{t} + \frac{1}{5}y_{t+1} + \frac{2}{15} * y_{t+2} + \frac{1}{15}y_{t+3} $$
+
+Therefore the coefficients are the ones listed in the question.
+
+
+# Question 6.2 
+
+The data below represent the monthly sales (in thousands) of product A for a plastics manufacturer for years 1 through 5 (data set plastics).
+
+```{r cached=TRUE}
+plastics
+```
+
+
+a) Plot the time series of sales of product A. Can you identify seasonal fluctuations and/or a trend?
+
+Yes, there is a clear upward trend and a seasonal component in this time series:
+
+```{r cached=TRUE}
+plot(plastics, main="Plastic Sales (in thousands) over 5 Years", ylab="Plastic Sales (in thousands)", xlab="Time (years)")
+```
+
+b) Use a classical multiplicative decomposition to calculate the trend-cycle and seasonal indices.
+
+```{r cached=TRUE}
+plastics.fit <- decompose(plastics, type="multiplicative")
+plot(plastics.fit)
+```
+
+c) Do the results support the graphical interpretation from part (a)?
+
+Yes, there is an upward trend in the first component and a pretty stable seasonal component.
+
+d) Compute and plot the seasonally adjusted data.
+
+```{r cached=TRUE}
+plastics.seasadj <- seasadj(plastics.fit)
+plot(plastics, main="Plastic Sales (in thousands) over 5 Years", ylab="Plastic Sales (in thousands)", xlab="Time (years)")
+lines(plastics.seasadj, col="red")
+legend(1, 1600, c("Data","De-seasoned Data"), lty=c(1,1), lwd=c(2.5,2.5), col=c("black", "red"))
+```
+
+e) Change one observation to be an outlier (e.g., add 500 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
+
+```{r cached=TRUE}
+plastics.outlier <- plastics
+plastics.outlier[20] <- plastics[20] + 500
+
+plastics.outlier.fit <- decompose(plastics.outlier, type="multiplicative")
+
+plot(plastics.outlier, main="Plastic Sales (in thousands) over 5 Years", ylab="Plastic Sales (in thousands)", xlab="Time (years)")
+lines(seasadj(plastics.outlier.fit), col="red")
+legend(3, 1800, c("Data","De-seasoned Data"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "red"))
+```
+
+This looks like the single outlier relaly distorts the deseasoned data, which means that this form of decomposition is sensitive to outliers.
+
+f) Does it make any difference if the outlier is near the end rather than in the middle of the time series?
+
+```{r cached=TRUE}
+plastics.outlier2 <- plastics
+plastics.outlier2[1] <- plastics[1] + 500
+
+plastics.outlier2.fit <- decompose(plastics.outlier2, type="multiplicative")
+
+plot(plastics.outlier2, main="Plastic Sales (in thousands) over 5 Years", ylab="Plastic Sales (in thousands)", xlab="Time (years)")
+lines(seasadj(plastics.outlier2.fit), col="red")
+legend(1.1, 1600, c("Data","De-seasoned Data"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "red"))
+```
+
+You can see the deseasoned data is very off at the beginning but since the edge points are only in a few of the calculations, it seems that the rest of the deseasoned data would be useful. Nonetheless, this shows that the classical decomposition method is sensitive to outliers.
+
+g) Use a random walk with drift to produce forecasts of the seasonally adjusted data. Reseasonalize the results to give forecasts on the original scale. 
+
+```{r cached=TRUE}
+# STL Fit
+plastics.stl.fit <- stl(plastics, t.window=15, s.window="periodic", robust=TRUE)
+
+# Naive forecasting
+plastics.stl.seasadj <- seasadj(plastics.stl.fit)
+plot(naive(plastics.stl.seasadj), xlab="New orders index")
+
+# Random walk forecasting
+fcast <- forecast(plastics.stl.fit, method="naive")
+plot(fcast, ylab="New orders index")
+```
+
+Using STL is the only way I could get a random walk forecast.
+
+Reference: page 92 on http://robjhyndman.com/talks/RevolutionR/4-Decomposition.pdf
+
+
+\pagebreak
+
+# Question 7.3
+
+For this exercise, use the quarterly UK passenger vehicle production data from 1977:1--2005:1 (data set ukcars).
+
+a) Plot the data and describe the main features of the series.
+
+```{r cached=TRUE}
+plot(ukcars, main="UK passenger vehicle production (1977 - 2005)", ylab="Vehicle Production")
+```
+
+Looks like there is a general upward trend up until 2000, which we see a huge drop in production. We see a slight increase after that drop but there seems to be no trend at this point.
+
+b) Decompose the series using STL and obtain the seasonally adjusted data.
+
+```{r cached=TRUE}
+ukcars.stl = stl(ukcars, t.window=11, s.window="periodic", robust=TRUE)
+ukcars.seasadj = seasadj(ukcars.stl)
+
+# Plot the breakdown
+plot(ukcars.stl, main="STL Decomposition of UK Cars Timeseries")
+
+# Plot the seasonaly adjusted data
+plot(ukcars, col="grey", main="UK passenger vehicle production (1977 - 2005)", ylab="Vehicle Production")
+lines(ukcars.seasadj, col="red")
+legend(1980, 450, c("Data","De-seasoned Data"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("grey", "red"))
+```
+
+c) Forecast the next two years of the series using an additive damped trend method applied to the seasonally adjusted data. Then reseasonalize the forecasts. Record the parameters of the method and report the RMSE of the one-step forecasts from your method.
+
+```{r cached=TRUE}
+# Is this how to re-seaonsalize?
+ukcars.addDamped <- holt(ukcars, damped=TRUE, h=8)
+ukcars.seasadj.addDamped <- holt(ukcars.seasadj, damped=TRUE, h=8)
+
+# Model params + RMSE of the one-step forecasts
+summary(ukcars.addDamped$model)
+
+# Show the forcast for 2 years
+plot(ukcars.addDamped)
+plot(ukcars.addDamped$model)
+
+# Show the fitted value
+plot(ukcars.addDamped, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.addDamped), col="blue", type="o")
+legend(1980, 450, c("Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+```
+
+d) Forecast the next two years of the series using Holt's linear method applied to the seasonally adjusted data. Then reseasonalize the forecasts. Record the parameters of the method and report the RMSE of of the one-step forecasts from your method.
+
+```{r cached=TRUE}
+# Is this how to re-seaonsalize?
+ukcars.linear <- holt(ukcars, h=8)
+ukcars.seasadj.linear <- holt(ukcars.seasadj, h=8)
+
+# Model params + RMSE of the one-step forecasts
+summary(ukcars.linear$model)
+
+# Show the forcast for 2 years
+plot(ukcars.linear)
+plot(ukcars.linear$model)
+
+# Show the fitted value
+plot(ukcars.linear, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.linear), col="blue", type="o")
+legend(1980, 450, c("Data","Fit (Linear)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+```
+
+e) Now use ets() to choose a seasonal model for the data.
+
+```{r cached=TRUE}
+# Is this how to re-seaonsalize?
+ukcars.ets <- holt(ukcars, h=8, exponential=TRUE)
+ukcars.ets.linear <- holt(ukcars.seasadj, h=8)
+
+# Model params + RMSE of the one-step forecasts
+summary(ukcars.ets$model)
+
+# Show the forcast for 2 years
+plot(ukcars.ets)
+plot(ukcars.ets$model)
+
+# Show the fitted value
+plot(ukcars.ets, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.ets), col="blue", type="o")
+legend(1980, 450, c("Data","Fit (Linear)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+```
+
+f) Compare the RMSE of the fitted model with the RMSE of the model you obtained using an STL decomposition with Holt's method. Which gives the better in-sample fits?
+
+```{r cached=TRUE}
+rbind(accuracy(ukcars.ets), accuracy(ukcars.linear), accuracy(ukcars.addDamped))
+```
+
+As we can see, the accuracy of the models seems pretty consistent.
+
+g) Compare the forecasts from the two approaches? Which seems most reasonable? 
+
+```{r cached=TRUE}
+plot(ukcars, main="UK passenger vehicle production (1977 - 2005)\nwith predictions from models", ylab="Vehicle Production")
+lines(fitted(ukcars.ets), col="blue", type='o')
+lines(ukcars.ets$mean, col="blue", type='o')
+lines(fitted(ukcars.linear), col="red", type='o')
+lines(ukcars.linear$mean, col="red", type='o')
+lines(fitted(ukcars.addDamped), col="green", type='o')
+lines(ukcars.addDamped$mean, col="green", type='o')
+legend(1980, 475, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
+```
+
+All the predictions seem to be consistent with one another.
+
+\pagebreak
+
+# Question 7.4
+
+For this exercise, use the monthly Australian short-term overseas visitors data, May 1985--April 2005. (Data set: visitors.)
+
+a) Make a time plot of your data and describe the main features of the series.
+
+```{r cached=TRUE}
+plot(visitors, main="Monthly Australian Short-term Overseas Visitors (1985 - 2005)", ylab="Overseas Visitors")
+```
+
+b) Forecast the next two years using Holt-Winters' multiplicative method.
+
+```{r cached=TRUE}
+visitors.hw <- hw(visitors, seasonal="multiplicative", h=24)
+#summary(visitors.hw)
+accuracy(visitors.hw)
+plot(visitors.hw$model)
+plot(visitors.hw)
+```
+
+c) Why is multiplicative seasonality necessary here?
+
+From the book:
+
+"The additive method is preferred when the seasonal variations are roughly constant through the series, while the multiplicative method is preferred when the seasonal variations are changing proportional to the level of the series".
+
+This seems approriate since the data seems to show that as time goes on, the seasonal variation is getting larger (i.e. the spread towards the end is greater than the beginning of the time series).
+
+d) Experiment with making the trend exponential and/or damped.
+
+```{r cached=TRUE}
+visitors.hw.trendexp <- hw(visitors, seasonal="multiplicative", exponential=TRUE, h=24)
+visitors.hw.trenddamp <- hw(visitors, seasonal="multiplicative", damped=TRUE, h=24)
+visitors.hw.trendboth <- hw(visitors, seasonal="multiplicative", exponential=TRUE, damped=TRUE, h=24)
+
+plot(visitors, main="Monthly Australian Short-term Overseas Visitors (1985 - 2005)", ylab="Overseas Visitors", xlim=c(2004, 2008), ylim=c(300, 650))
+#lines(fitted(visitors.hw), col="purple", type='o')
+lines(visitors.hw$mean, col="purple", type='o')
+#lines(fitted(visitors.hw.trendexp), col="blue", type='o')
+lines(visitors.hw.trendexp$mean, col="blue", type='o')
+#lines(fitted(visitors.hw.trenddamp), col="red", type='o')
+lines(visitors.hw.trenddamp$mean, col="red", type='o')
+#lines(fitted(visitors.hw.trendboth), col="green", type='o')
+lines(visitors.hw.trendboth$mean, col="green", type='o')
+legend(2000, 200, c("Data", "HW Method", "w/ trend exp", "w/ trend damped", "w/ trend damped+exp"), lty=c(1,1,1,1), lwd=c(2.5, 2.5, 2.5, 2.5), col=c("black","purple","blue","red","green"))
+```
+
+The blue and purple forcasts are pretty identical, while the red and green ones are close as well.
+
+e) Compare the RMSE of the one-step forecasts from the various methods. Which do you prefer?
+
+```{r cached=TRUE}
+accuracies <- rbind(accuracy(visitors.hw), accuracy(visitors.hw.trendexp), accuracy(visitors.hw.trenddamp), accuracy(visitors.hw.trendboth))
+rownames(accuracies) <- c("Holt-Winters' seasonal mult", "with exp trend", "with damped trend", "with exp, damped trend")
+accuracies
+```
+
+Tough to say, as the RMSE seems to be all very close. Technically, the Holt-Winters' multiplicative method with a damped trend component is a slight favorite based on RMSE.
+
+f) Now fit each of the following models to the same data:
+  - a multiplicative Holt-Winters' method;
+  - an ETS model;
+  - an additive ETS model applied to a Box-Cox transformed series;
+  - a seasonal naive method applied to the Box-Cox transformed series;
+  - an STL decomposition applied to the Box-Cox transformed data followed by an ETS model applied to the seasonally adjusted (transformed) data. 
+  - For each model, look at the residual diagnostics and compare the forecasts for the next two years. Which do you prefer? 
+
+```{r cached=TRUE}
+visitors.lambda <- BoxCox.lambda(visitors) # = 0.2775249
+visitors.transformed <- BoxCox(visitors, visitors.lambda)
+
+# Multiplicative Holt-Winters' method;
+visitors.hw <- hw(visitors, seasonal="multiplicative", h=24)
+
+# ETS model;
+visitors.ets <- ets(visitors)
+visitors.ets.forecast <- forecast(visitors.ets, h=24)
+
+# an additive ETS model applied to a Box-Cox transformed series;
+visitors.ets.additive <- ets(visitors, additive=TRUE, lambda=visitors.lambda)
+visitors.ets.additive.forecast <- forecast(visitors.ets.additive, h=24)
+
+# a seasonal naive method applied to the Box-Cox transformed series;
+visitors.seasonal.naive <- snaive(visitors, h=24)
+
+# an STL decomposition applied to the Box-Cox transformed data followed by an ETS model applied to the seasonally adjusted (transformed) data. 
+visitors.stl <- stl(visitors.transformed, t.window=15, s.window="periodic", robust=TRUE)
+visitors.seasadj <- seasadj(visitors.stl)
+visitors.stl.ets <- ets(visitors.seasadj)
+visitors.stl.ets.forecast <- forecast(visitors.stl.ets, h=24)
+```
+
+```{r fig.height=9}
+# plot residuals
+par(mfrow=c(3,2), oma = c(0, 0, 2, 0))
+plot(residuals(visitors.hw), main="Residuals for Holt-Winters' Model", ylab="Residuals")
+plot(residuals(visitors.ets.forecast), main="Residuals from ETS Model", ylab="Residuals")
+plot(residuals(visitors.ets.additive.forecast), main="Residuals from ETS Additive Model", ylab="Residuals")
+plot(residuals(visitors.seasonal.naive), main="Residuals from Seasonal Naive Model", ylab="Residuals")
+plot(residuals(visitors.stl.ets.forecast), main="Residuals from STL then ETS Model", ylab="Residuals")
+mtext("Residual Analysis of Models", outer = TRUE, cex = 1.5)
+```
+
+```{r}
+# Plot forecasts from various models
+par(mfrow=c(1,1), xpd=FALSE)
+plot(visitors, main="Monthly Australian Short-term Overseas Visitors (1985 - 2005)", ylab="Overseas Visitors", xlim=c(2004, 2008), ylim=c(300, 650))
+lines(visitors.hw$mean, col="purple", type='o')
+lines(visitors.ets.forecast$mean, col="blue", type='o')
+lines(visitors.ets.additive.forecast$mean, col="red", type='o')
+lines(visitors.seasonal.naive$mean, col="green", type='o')
+lines(InvBoxCox(visitors.stl.ets.forecast$mean, visitors.lambda), col="#fdae61", type='o')
+legend("bottomright", inset=c(0,0), legend=c("Holt-Winters' seasonal mult", "ETS", "ETS Additive", "Seasonal Naive", "STL then ETS"), lty=c(1,1,1,1), lwd=c(2.5, 2.5, 2.5, 2.5), col=c("purple","blue","red","green", "#fdae61"))
+
+
+
+
+accuracies <- rbind(accuracy(visitors.hw), accuracy(visitors.ets), accuracy(visitors.ets.additive), accuracy(visitors.seasonal.naive), accuracy(visitors.stl.ets))
+rownames(accuracies) <- c("Holt-Winters' seasonal mult", "ETS", "ETS Additive", "Seasonal Naive", "STL then ETS")
+accuracies
+```
+
+The last model, which does STL then ETS, is not directly comparable since the ETS model is based off the seasonally adjusted data (i.e only the trend cycle component). However, it does a nice job of showing the predicited trend for 2 years.
+
+Out of the other models, only the seasonal naive method does poorly with a much higher RMSE than the others. Most of the residual plots do show that the models are not making systemic errors, thought the seasonal naive method has problems: the errors do not flucuate around 0 and they diverge towards kater years.
