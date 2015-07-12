@@ -80,7 +80,7 @@ In this project, I will try to develop predictive models for this dataset. I wil
 
 The first thing to do was convert the .ods file into a .csv file using LibreOffice. The data.csv file is the result, and has been loaded:
 
-```{r results='hide'}
+```{r results='hide', message=FALSE}
 # Init
 library(e1071)
 library(caret)
@@ -88,6 +88,9 @@ library(corrplot)
 library(ggplot2)
 library(GGally)
 library(forecast)
+
+# Set random set for predictability
+set.seed(200)
 
 # Load data
 df <- read.csv("CCPP/data.csv")
@@ -158,7 +161,7 @@ df.test <- df[-trainIndex, ]
 ```{r}
 # Build Lineat Regression Model
 fit  <- lm(PE ~ V + AT + RH + AP, data=df.training)
-summary(fit)
+#summary(fit)
 
 # Residuals
 plot(residuals(fit) ~ PE, data=df.training, main="Residuals Plot")
@@ -173,6 +176,31 @@ postResample(pred = forecast$mean, obs = df.test$PE)
 plot(df.test$PE, forecast$mean, main="Predictions of Energy Output versus Test Set", ylab="Energy Output (Prediction)", xlab="Energy Output (Test Set)")
 abline(0, 1, col='red')
 ```
+
+## Linear Model with Less Predictors
+
+Lets try taking out one of the highly correlated predictors and see if we can improve our model:
+
+```{r}
+# Build Linear Regression Model
+fit  <- lm(PE ~ V + RH + AP, data=df.training)
+#summary(fit)
+
+# Residuals
+#plot(residuals(fit) ~ PE, data=df.training, main="Residuals Plot")
+#abline(0, 0, col='red')
+
+# Forecast the data
+forecast <- forecast(fit, newdata=df.test)
+accuracy(forecast, df.test)
+postResample(pred = forecast$mean, obs = df.test$PE)
+
+# Plot predictions versus reality in test set
+#plot(df.test$PE, forecast$mean, main="Predictions of Energy Output versus Test Set", ylab="Energy Output (Prediction)", xlab="Energy Output (Test Set)")
+#abline(0, 1, col='red')
+```
+
+Taking out the Ambient Temperature predictor, despite having high correlations to the other predictors, does not seem to help here.
 
 ## More Advanced Models
 
