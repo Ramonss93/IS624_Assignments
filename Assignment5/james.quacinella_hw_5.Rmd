@@ -199,7 +199,7 @@ plot(ukcars.seasadj.addDamped)
 plot(ukcars.seasadj.addDamped$model)
 
 # Show the fitted value
-plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+plot(ukcars.seasadj, type="o")
 lines(fitted(ukcars.seasadj.addDamped), col="blue", type="o")
 legend(1980, 450, c("Deseasonalized Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 
@@ -223,10 +223,10 @@ summary(ukcars.seasadj.linear$model)
 
 # Show the forcast for 2 years
 plot(ukcars.seasadj.linear)
-plot(ukcars.linear$model)
+plot(ukcars.seasadj.linear$model)
 
 # Show the fitted value
-plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+plot(ukcars.seasadj, type="o")
 lines(fitted(ukcars.seasadj.linear), col="blue", type="o")
 legend(1980, 450, c("Data","Fit (Linear)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 
@@ -250,7 +250,7 @@ plot(ukcars.seasadj.ets)
 #plot(ukcars.seasadj.ets$model)
 
 # Show the fitted value
-plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+plot(ukcars.seasadj, type="o")
 lines(fitted(ukcars.seasadj.ets), col="blue", type="o")
 legend(1980, 450, c("Data","Fit (ets)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 
@@ -282,7 +282,7 @@ lines(fitted(ukcars.seasadj.linear), col="red", type='o')
 lines(ukcars.seasadj.linear$mean, col="red", type='o')
 lines(fitted(ukcars.seasadj.addDamped), col="green", type='o')
 lines(ukcars.seasadj.addDamped$mean, col="green", type='o')
-legend(1980, 475, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
+legend(2000, 300, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
 ```
 
 Lets redo the same thing above, but reseaonalizing the data and forecasts:
@@ -295,7 +295,7 @@ lines(fitted(ukcars.seasadj.linear) + ukcars.seasonalcomp, col="red", type='o')
 lines(ukcars.seasadj.linear$mean + ukcars.seasonalcomp[1:8], col="red", type='o')
 lines(fitted(ukcars.seasadj.addDamped) + ukcars.seasonalcomp, col="green", type='o')
 lines(ukcars.seasadj.addDamped$mean + ukcars.seasonalcomp[1:8], col="green", type='o')
-legend(1980, 475, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
+legend(2000, 300, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
 ```
 
 All the predictions seem to be consistent with one another.
