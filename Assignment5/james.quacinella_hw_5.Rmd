@@ -143,19 +143,18 @@ You can see the deseasoned data is very off at the beginning but since the edge 
 g) Use a random walk with drift to produce forecasts of the seasonally adjusted data. Reseasonalize the results to give forecasts on the original scale. 
 
 ```{r cached=TRUE}
-# STL Fit
+
+# Random walk with drift
+predicted <- rwf(seasadj(plastics.fit), h=12, drift=TRUE)
+plot(predicted)
+
+# Random walk re-seasonalized (with STL)
 plastics.stl.fit <- stl(plastics, t.window=15, s.window="periodic", robust=TRUE)
-
-# Naive forecasting
-plastics.stl.seasadj <- seasadj(plastics.stl.fit)
-plot(naive(plastics.stl.seasadj), xlab="New orders index")
-
-# Random walk forecasting
 fcast <- forecast(plastics.stl.fit, method="naive")
 plot(fcast, ylab="New orders index")
 ```
 
-Using STL is the only way I could get a random walk forecast.
+Using STL is the only way I could get a random walk forecast that looked like the output from the book.
 
 Reference: page 92 on http://robjhyndman.com/talks/RevolutionR/4-Decomposition.pdf
 
@@ -168,7 +167,7 @@ For this exercise, use the quarterly UK passenger vehicle production data from 1
 
 a) Plot the data and describe the main features of the series.
 
-```{r cached=TRUE}
+```{r}
 plot(ukcars, main="UK passenger vehicle production (1977 - 2005)", ylab="Vehicle Production")
 ```
 
@@ -176,7 +175,7 @@ Looks like there is a general upward trend up until 2000, which we see a huge dr
 
 b) Decompose the series using STL and obtain the seasonally adjusted data.
 
-```{r cached=TRUE}
+```{r}
 ukcars.stl = stl(ukcars, t.window=11, s.window="periodic", robust=TRUE)
 ukcars.seasadj = seasadj(ukcars.stl)
 
@@ -191,82 +190,111 @@ legend(1980, 450, c("Data","De-seasoned Data"), lty=c(1,1), lwd=c(2.5, 2.5), col
 
 c) Forecast the next two years of the series using an additive damped trend method applied to the seasonally adjusted data. Then reseasonalize the forecasts. Record the parameters of the method and report the RMSE of the one-step forecasts from your method.
 
-```{r cached=TRUE}
-# Is this how to re-seaonsalize?
-ukcars.addDamped <- holt(ukcars, damped=TRUE, h=8)
+```{r}
 ukcars.seasadj.addDamped <- holt(ukcars.seasadj, damped=TRUE, h=8)
-
-# Model params + RMSE of the one-step forecasts
-summary(ukcars.addDamped$model)
+summary(ukcars.seasadj.addDamped$model) # 25.16349
 
 # Show the forcast for 2 years
-plot(ukcars.addDamped)
-plot(ukcars.addDamped$model)
+plot(ukcars.seasadj.addDamped)
+plot(ukcars.seasadj.addDamped$model)
 
 # Show the fitted value
-plot(ukcars.addDamped, plot.conf=FALSE, fcol="white", type="o")
-lines(fitted(ukcars.addDamped), col="blue", type="o")
-legend(1980, 450, c("Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.seasadj.addDamped), col="blue", type="o")
+legend(1980, 450, c("Deseasonalized Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+
+# Reseasonalized
+ukcars.seasonalcomp <- ukcars.stl$time.series[ , "seasonal"]
+plot(ukcars, col="gray", type="o")
+lines(fitted(ukcars.seasadj.addDamped) + ukcars.seasonalcomp, col="blue", type="o")
+legend(1980, 450, c("Reseasonalized Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 ```
+
 
 d) Forecast the next two years of the series using Holt's linear method applied to the seasonally adjusted data. Then reseasonalize the forecasts. Record the parameters of the method and report the RMSE of of the one-step forecasts from your method.
 
 ```{r cached=TRUE}
 # Is this how to re-seaonsalize?
-ukcars.linear <- holt(ukcars, h=8)
+#ukcars.linear <- holt(ukcars, h=8)
 ukcars.seasadj.linear <- holt(ukcars.seasadj, h=8)
 
 # Model params + RMSE of the one-step forecasts
-summary(ukcars.linear$model)
+summary(ukcars.seasadj.linear$model)
 
 # Show the forcast for 2 years
-plot(ukcars.linear)
+plot(ukcars.seasadj.linear)
 plot(ukcars.linear$model)
 
 # Show the fitted value
-plot(ukcars.linear, plot.conf=FALSE, fcol="white", type="o")
-lines(fitted(ukcars.linear), col="blue", type="o")
+plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.seasadj.linear), col="blue", type="o")
 legend(1980, 450, c("Data","Fit (Linear)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+
+# Reseasonalized
+#ukcars.seasonalcomp <- ukcars.stl$time.series[ , "seasonal"]
+plot(ukcars, col="gray", type="o")
+lines(fitted(ukcars.seasadj.linear) + ukcars.seasonalcomp, col="blue", type="o")
+legend(1980, 450, c("Reseasonalized Data","Fit (Damped)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 ```
 
 e) Now use ets() to choose a seasonal model for the data.
 
-```{r cached=TRUE}
-# Is this how to re-seaonsalize?
-ukcars.ets <- holt(ukcars, h=8, exponential=TRUE)
-ukcars.ets.linear <- holt(ukcars.seasadj, h=8)
+```{r}
+ukcars.seasadj.ets <- ets(ukcars.seasadj, model="ZZZ")
 
 # Model params + RMSE of the one-step forecasts
-summary(ukcars.ets$model)
+summary(ukcars.seasadj.ets)
 
 # Show the forcast for 2 years
-plot(ukcars.ets)
-plot(ukcars.ets$model)
+plot(ukcars.seasadj.ets)
+#plot(ukcars.seasadj.ets$model)
 
 # Show the fitted value
-plot(ukcars.ets, plot.conf=FALSE, fcol="white", type="o")
-lines(fitted(ukcars.ets), col="blue", type="o")
-legend(1980, 450, c("Data","Fit (Linear)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+plot(ukcars.seasadj, plot.conf=FALSE, fcol="white", type="o")
+lines(fitted(ukcars.seasadj.ets), col="blue", type="o")
+legend(1980, 450, c("Data","Fit (ets)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
+
+# Reseasonalized
+#ukcars.seasonalcomp <- ukcars.stl$time.series[ , "seasonal"]
+plot(ukcars, col="gray", type="o")
+lines(fitted(ukcars.seasadj.ets) + ukcars.seasonalcomp, col="blue", type="o")
+legend(1980, 450, c("Reseasonalized Data","Fit (ETS)"), lty=c(1,1), lwd=c(2.5, 2.5), col=c("black", "blue"))
 ```
 
 f) Compare the RMSE of the fitted model with the RMSE of the model you obtained using an STL decomposition with Holt's method. Which gives the better in-sample fits?
 
-```{r cached=TRUE}
-rbind(accuracy(ukcars.ets), accuracy(ukcars.linear), accuracy(ukcars.addDamped))
+```{r}
+rbind(accuracy(ukcars.seasadj.ets), accuracy(ukcars.seasadj.linear))
 ```
 
-As we can see, the accuracy of the models seems pretty consistent.
+As we can see, the accuracy of the models seems pretty consistent with there not being a hge difference in various error metrics.
+
 
 g) Compare the forecasts from the two approaches? Which seems most reasonable? 
 
-```{r cached=TRUE}
-plot(ukcars, main="UK passenger vehicle production (1977 - 2005)\nwith predictions from models", ylab="Vehicle Production")
-lines(fitted(ukcars.ets), col="blue", type='o')
-lines(ukcars.ets$mean, col="blue", type='o')
-lines(fitted(ukcars.linear), col="red", type='o')
-lines(ukcars.linear$mean, col="red", type='o')
-lines(fitted(ukcars.addDamped), col="green", type='o')
-lines(ukcars.addDamped$mean, col="green", type='o')
+We'll show our models versus the seasonally adjusted data, and see the forecasts here:
+
+```{r}
+plot(ukcars.seasadj, main="UK passenger vehicle production (1977 - 2005)\nwith predictions from models", ylab="Vehicle Production", xlim=c(2000, 2008))
+lines(fitted(ukcars.seasadj.ets), col="blue", type='o')
+lines(forecast(ukcars.seasadj.ets, h=8)$mean, col="blue", type='o')
+lines(fitted(ukcars.seasadj.linear), col="red", type='o')
+lines(ukcars.seasadj.linear$mean, col="red", type='o')
+lines(fitted(ukcars.seasadj.addDamped), col="green", type='o')
+lines(ukcars.seasadj.addDamped$mean, col="green", type='o')
+legend(1980, 475, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
+```
+
+Lets redo the same thing above, but reseaonalizing the data and forecasts:
+
+```{r}
+plot(ukcars, main="UK passenger vehicle production (1977 - 2005)\nwith predictions from models", ylab="Vehicle Production", xlim=c(2000, 2008))
+lines(fitted(ukcars.seasadj.ets) + ukcars.seasonalcomp, col="blue", type='o')
+lines(forecast(ukcars.seasadj.ets, h=8)$mean + ukcars.seasonalcomp[1:8], col="blue", type='o')
+lines(fitted(ukcars.seasadj.linear) + ukcars.seasonalcomp, col="red", type='o')
+lines(ukcars.seasadj.linear$mean + ukcars.seasonalcomp[1:8], col="red", type='o')
+lines(fitted(ukcars.seasadj.addDamped) + ukcars.seasonalcomp, col="green", type='o')
+lines(ukcars.seasadj.addDamped$mean + ukcars.seasonalcomp[1:8], col="green", type='o')
 legend(1980, 475, c("Data","ETS", "Linear", "Additive, damped"), lty=c(1,1,1,1), lwd=c(2, 2, 2, 2), col=c("black", "blue", "red", "green"))
 ```
 

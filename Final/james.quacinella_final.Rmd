@@ -142,7 +142,7 @@ Lets view that data:
 ggpairs(df[ , predictors])
 
 p1 <- ggplot(df, aes(x=AT, y=PE)) + geom_point() + geom_smooth(method='lm') + ggtitle("Output versus Ambient Temperature") + ylab("Energy Output")
-p2 <- ggplot(df, aes(x=AP, y=PE)) + geom_point() + geom_smooth(method='lm') + ggtitle("Output versus Ambient Preesure") + ylab("Energy Output")
+p2 <- ggplot(df, aes(x=AP, y=PE)) + geom_point() + geom_smooth(method='lm') + ggtitle("Output versus Ambient Pressure") + ylab("Energy Output")
 p3 <- ggplot(df, aes(x=RH, y=PE)) + geom_point() + geom_smooth(method='lm') + ggtitle("Output versus Relative Humidity") + ylab("Energy Output")
 p4 <- ggplot(df, aes(x=V, y=PE)) + geom_point() + geom_smooth(method='lm') + ggtitle("Output versus Exhaust Vacuum") + ylab("Energy Output")
 multiplot(p1, p2, p3, p4, cols=2)
