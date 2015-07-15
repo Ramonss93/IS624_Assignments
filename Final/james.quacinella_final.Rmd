@@ -59,6 +59,10 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ## Introduction
 
+TODO: in lieu of http://www.cgdev.org/sites/default/files/1426429_file_Ummel_CARMA3.0_FINAL_0.pdf (CARMA Revisited: An Updated Database of Carbon Dioxide Emissions from Power Plants Worldwide) and http://carma.org/plant
+
+TODO: some other links: http://enipedia.tudelft.nl/wiki/Energy_and_Industry_Data_Sets
+
 To quote directly from the [data source itself](https://archive.ics.uci.edu/ml/datasets/Combined+Cycle+Power+Plant):
 
 >The dataset contains 9568 data points collected from a Combined Cycle Power Plant over 6 years
