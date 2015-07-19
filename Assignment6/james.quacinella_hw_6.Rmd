@@ -114,6 +114,7 @@ d) Fit the model using R and examine the residuals. Is the model satisfactory?
 
 ```{r}
 wmurders.model <- Arima(wmurders, order=c(1,2,2))
+summary(wmurders.model)
 tsdisplay(resid(wmurders.model), main="Arima(1,2,2) Model")
 ```
 
@@ -169,53 +170,92 @@ lines(ma(x = usmelec, order = 12), col="red")
 
 b) Do the data need transforming? If so, find a suitable transformation.
 
-It seems like the data does need transforming, as the variance seems to increase with time (which indicates a seasonal component that grows in time). Lets use a BoxCox transform:
+It seems like the data does need transforming, as the variance seems to increase with time (which indicates a seasonal component that grows in time). Lets use a BoxCox transform and follow it with a seasonal transform (by using a diff with a 12m lag):
 
 ```{r}
-usmelec.holt <- decompose(usmelec, type="multiplicative")
-usmelec.seasadj <- seasadj(usmelec.holt)
-plot(usmelec.seasadj)
-
-lambda <- BoxCox.lambda(usmelec.seasadj) 
-usmelec.boxcox <- BoxCox(usmelec.seasadj, lambda)
+lambda <- BoxCox.lambda(usmelec) 
+usmelec.boxcox <- BoxCox(usmelec, lambda)
 plot(usmelec.boxcox, main="Total Net Generation of Electricity \n(in billion kilowatt hours, monthly during 1985–1996)", ylab="Electricity (in billion kilowatt hours)")
+
+usmelec.seasadj <- diff(usmelec.boxcox, 12)
+tsdisplay(usmelec.seasadj, main="Total Net Generation of Electricity\nBoxCox + Seas Adj ", ylab="Electricity (in billion kilowatt hours)")
+
 ```
 
 c) Are the data stationary? If not, find an appropriate differencing which yields stationary data
 
-The following code, from the book, will transform both the normal data and the BoxCox-transformed data using seasonal differencing. After that, the code uses ndiffs to figure out if any more differences is needed. 
+Using both tests, I get mixed results:
 
+```{r warning=FALSE}
+# Mixed results
+adf.test(usmelec.seasadj, alternative = "stationary")$p.value
+kpss.test(usmelec.seasadj)
 
-```{r}
-# From https://www.otexts.org/fpp/8/1
-# For non-boxcox transformed data
-ns <- nsdiffs(usmelec)
-if(ns > 0) {
-  usmelec.star <- diff(usmelec,lag=frequency(usmelec.boxcox),differences=ns)
-} else {
-  usmelec.star <- usmelec
-}
-nd1 <- ndiffs(usmelec.star)
-if(nd1 > 0) {
-  usmelec.star <- diff(usmelec.star,differences=nd1)
-}
+# One more difference
+adf.test(diff(usmelec.seasadj, differences=1), alternative = "stationary")$p.value
+kpss.test(diff(usmelec.seasadj, differences=1))
 
-# For boxcox transformed data
-nd2 <- ndiffs(usmelec.boxcox)
-if(nd2 > 0) {
-  usmelec.boxcox.star <- diff(usmelec.boxcox,differences=nd2)
-}
+# Seems like to get both tests to confirm stationarity, we need to diff once more
+usmelec.adj <- diff(usmelec.seasadj, differences=1)
+
+# Plot final data set
+tsdisplay(usmelec.adj, main="Total Net Generation of Electricity\nBoxCox + Seas Adj + 1 difference", ylab="Electricity (in billion kilowatt hours)")
 ```
 
 d) Identify a couple of ARIMA models that might be useful in describing the time series. Which of your models is the best according to their AIC values?
+
+I find these ACF / PACF plots somewhat difficult to interpret, as if its some kind of black magic, esp when dealing with seasonal ARIMA models. This plot doesn't seem to fit exactly in the rules of thumb given in the book. The PACF does show spikes at every 12th lag, with them slightly decaying, while the ACF shows one spike at lag = 12. This seems to indicate a $(0,1,1)_12$ seasonal component, w/ $d=1$ since we did a seasonal difference and $m=12$ since the seasonal period is 12 months.
+
+The non-seasonal component is also tough to interpret from the graphs. I think d should still be 1 due to the one differencing we needed. For this part, I'll use a few simple non-seasonal components and see what AIC values I get:
+
+```{r}
+arima.fit1 <- Arima(usmelec.boxcox, order=c(0,1,1), seasonal=c(0,1,1))
+summary(arima.fit1)
+
+arima.fit2 <- Arima(usmelec.boxcox, order=c(1,1,0), seasonal=c(0,1,1))
+summary(arima.fit2)
+
+arima.fit3 <- Arima(usmelec.boxcox, order=c(1,1,1), seasonal=c(0,1,1))
+summary(arima.fit3)
+
+```
+
+Seems like fit3 is the best with the lowest $AIC_c$.
 
 e) Estimate the parameters of your best model and do diagnostic testing on the residuals. Do the 
 residuals resemble white noise? If not, try to find another ARIMA model which fits better.
 
 ```{r}
-tsdisplay(residuals(Arima(usmelec.boxcox.star, order=c(1,0,1), seasonal=c(2,0,1))))
+tsdisplay(residuals(arima.fit3))
 ```
+
+This looks close to white noise, but not quite close enough. However, looking at the results of auto.arima(), we do not see white noise either:
+
+```{r}
+arima.fitauto <- auto.arima(usmelec.boxcox)
+tsdisplay(residuals(arima.fitauto))
+```
+
+It might not be possible to get white noise in the residuals using these techniques.
 
 f) Forecast the next 15 years of generation of electricity by the U.S. electric industry. Get the latest figures from http://data.is/zgRWCO to check on the accuracy of your forecasts.
 
+Forecasting from my best model:
+
+```{r}
+arima.fitauto.forecast <- forecast(arima.fitauto, h=180)
+plot(arima.fitauto.forecast)
+```
+
+Forecasting from auto.arima():
+
+```{r}
+arima.fit3.forecast <- forecast(arima.fit3, h=180)
+plot(arima.fit3.forecast)
+```
+
+Not sure why the auto.arima forecast gets out whack after 4 years or so. Further analysis will be on my model's forecast. The forecasts from my model look ok but I think trends too far upwards.
+
 h) How many years of forecasts do you think are sufficiently accurate to be usable? 
+
+From the plot, it looks like the range of values from starts to expand after 4 years from a visual inspection. I imagine forecasting more than 5 years are so is going to be quite off if looking for exact values from the prediction. Forecasts further than might be useful for future trend analysis.
