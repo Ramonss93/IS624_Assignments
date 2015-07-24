@@ -1,0 +1,147 @@
+---
+title: "IS624 - Assignment7"
+author: "James Quacinella"
+date: "07/21/2015"
+output: 
+  pdf_document:
+    toc: yes
+theme: journal
+---
+
+```{r include=FALSE}
+# Init
+library(survival)
+library(KMsurv)
+library(MASS)
+library(car)
+
+# Random seed
+set.seed(1)
+```
+
+\pagebreak
+
+# Question 1
+
+Load in the ovarian data-set, which is data from a randomised trial comparing two treatments for ovarian cancer. Compare the two treatment groups (treatment 1 versus treatment 2). Plot the respective survival curves, indicating censored subjects. You can distinguish between the two groups using different colours or different line formats or both. Label both x and y axes. Add a suitable title. Also, add a legend indicating which line corresponds to which line format. Finally compare the two survival curves(log-rank) and add a p-value to the bottom-right of the plot.
+
+**Answer:**
+
+Following the code given in the reading:
+
+```{r}
+# Load data and create model
+attach(ovarian)
+ovarian.survFit <- survfit(Surv(futime, fustat) ~ rx)
+
+# Plot survival curves
+plot(ovarian.survFit, main="Ovarian Cancer - Overall Survival", xlab="Time (Days)", ylab="Overall Survival Proportion", col=c("red", "blue"), lty=1:2, mark="+")
+legend("topright", c("Treatment1", "Treatment2"), col=c("red", "blue"), lty=1:2)
+legend(700, 0.2, paste("p-value: ", 0.303), box.col="white")
+
+# Log-rank test p-value (commenting out for formatting)
+#survdiff(Surv(futime, fustat) ~ rx) # WTH? No way to get p value??
+detach(ovarian)
+```
+
+\pagebreak
+
+# Question 2
+
+This data considers two transplant types in relation to leukaemia-free survival.
+
+Compare the two transplant types (allogeneic vs autologous). Plot the respective 
+relapse-free survival curves, indicating censored subjects. You can distinguish between the two groups using different colours or different line formats or both. Label both x- and y-axes. Add a suitable title. Also, add a legend indicating which line corresponds to which line format. Finally compare the two survival curves (log-rank) and add a p-value to the bottom-right of the plot.
+
+**Answer:**
+
+Same methodology as above:
+
+```{r}
+# Load data and create model
+data(alloauto)
+attach(alloauto)
+alloauto_survFit <- survfit(Surv(time, delta) ~ type)
+
+# Plot survival curves
+plot(alloauto_survFit, main="Leukemia Relapse Survival Curves", xlab="Time (Months)", ylab="Overall survival proportion", col=c("red", "blue"), lty=1:2, mark="+")
+legend("topright", c("Allogeneic", "Autologous"), col=c("red", "blue"), lty=1:2)
+legend(25, 0.25, "p-value: 0.537", box.col="white")
+
+# Log-rank test p-value (commenting out for formatting)
+#survdiff(Surv(time, delta) ~ type)
+detach(alloauto)
+```
+
+\pagebreak
+
+# Question 3
+
+Look at the hmoiv data-set again. Recode the age variables (see below) and repeat the univariate and multivariate analyses.
+
+```{r}
+hmohiv <- read.table("http://www.ats.ucla.edu/stat/r/examples/asa/hmohiv.csv", sep=",", header = TRUE) 
+attach(hmohiv)
+
+# I think the book has an error in the order of letters but it doesnt really matter
+agecat <- recode(age, "20:29='A'; 30:34='B'; 35:39='C';40:54='D'", as.factor=T)
+agecat.new <- recode(age, "20:29='D'; 30:34='B'; 35:39='C';40:54='A'", as.factor=T)
+```
+
+```{r results='hold'}
+summary(coxph(formula = Surv(time, censor) ~ agecat, method = "efron"))
+print("---")
+summary(coxph(formula = Surv(time, censor) ~ agecat.new, method = "efron"))
+```
+
+```{r results='hold'}
+summary(coxph(formula = Surv(time, censor) ~ agecat+drug, method = "efron"))
+print("---")
+summary(coxph(formula = Surv(time, censor) ~ agecat.new+drug, method = "efron"))
+detach(hmohiv)
+```
+
+Does using a larger reference group for the age help in any way? What do you notice about the hazard ratios and confidence intervals? Are the p-values or the concordance index affected?
+
+**Answer:** It does not seem to help with respect to the concordance index or the p-values, as they are identical no matter which coding you use. The hazard rations are different, as well as their confidence intervals. This is due to the ratios changing based on the reference group.
+
+\pagebreak
+
+# Question 4
+
+
+```{r}
+uis <-read.table("http://www.ats.ucla.edu/stat/R/examples/asa/uis.csv", sep=",", header = TRUE)
+uis_small<-uis[,c(1,2,4,6,8,9,11,12)]
+tiny_uis <- uis_small[apply(uis_small,1,function(x)!any(is.na(x))),]
+attach(tiny_uis)
+
+age.coxph <- coxph(Surv(time,censor)~age+strata(site), method="efron", data=tiny_uis)
+summary(age.coxph)
+
+treat.coxph <- coxph(Surv(time,censor)~treat+strata(site), method="efron", data=tiny_uis)
+summary(treat.coxph)
+
+ndrugtx.coxph <- coxph(Surv(time,censor)~ndrugtx+strata(site), method="efron", data=tiny_uis)
+summary(ndrugtx.coxph)
+
+hercoc.coxph <- coxph(Surv(time,censor)~hercoc+strata(site), method="efron", data=tiny_uis)
+summary(hercoc.coxph)
+
+all.coxph <- coxph(Surv(time,censor)~age+treat+ndrugtx+hercoc+strata(site), method="efron", data=tiny_uis)
+summary(all.coxph)
+```
+
+Thats a whole lot of output. Summary:
+
+age concordance= 0.532
+treat Concordance= 0.543
+ndrugtx Concordance= 0.549
+hercoc Concordance = 0.523  * different than book
+all Concordance= 0.585
+
+```{r}
+summary(stepAIC(all.coxph))
+```
+
+We get a concordance of 0.587 with only the age, treat and ndrugtx variables.
