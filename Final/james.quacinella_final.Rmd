@@ -59,11 +59,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ## Introduction
 
-TODO: in lieu of http://www.cgdev.org/sites/default/files/1426429_file_Ummel_CARMA3.0_FINAL_0.pdf (CARMA Revisited: An Updated Database of Carbon Dioxide Emissions from Power Plants Worldwide) and http://carma.org/plant
-
-TODO: some other links: http://enipedia.tudelft.nl/wiki/Energy_and_Industry_Data_Sets
-
-To quote directly from the [data source itself](https://archive.ics.uci.edu/ml/datasets/Combined+Cycle+Power+Plant):
+Originally, I planned on working with a few data sets relating to electrical power generators and their $C0_2$ emissions. I found a few data sets, but a critical data set on world-wide generators is not free sadly. In lieu of working with this data, I found a dataset on the UCI Machine Learning repository that was tangentially related to the original idea. To quote directly from the [data source itself](https://archive.ics.uci.edu/ml/datasets/Combined+Cycle+Power+Plant):
 
 >The dataset contains 9568 data points collected from a Combined Cycle Power Plant over 6 years
 >(2006-2011), when the power plant was set to work with full load. Features consist of hourly
@@ -76,7 +72,9 @@ To quote directly from the [data source itself](https://archive.ics.uci.edu/ml/d
 >While the Vacuum is collected from and has an effect on the Steam Turbine, the other three o
 >the ambient variables effect the GT performance.
 
-In this project, I will try to develop predictive models for this dataset. I will start with linear regression and see what other models can bring.
+In this project, I will try to develop predictive models for this dataset. Here, I will try to predict the energy output (EP) of the power plant from the 4 predictors gievn (temperature, ambient pressure, relative humidity and exhaust vaccum). My hypothesis is that models regarding physical processes should be pretty accurate once a proper model is chosen, since physical processes obey physical laws.
+
+I will start with linear regression and see what other models can bring.
 
 
 
@@ -152,10 +150,10 @@ p4 <- ggplot(df, aes(x=V, y=PE)) + geom_point() + geom_smooth(method='lm') + ggt
 multiplot(p1, p2, p3, p4, cols=2)
 ```
 
-For the next steps, where we build models for this data, lets create a training and test set for performance measures:
+For the next steps, where we build models for this data, lets create a training and test set for performance measures. I played around with the percentage of data to be used for cross-validation, with 90% used for training being a good value that ends with good results (though the range of values tried always ended up with results with $R^2$ > .9:
 
 ```{r}
-trainIndex <- createDataPartition(df$PE, p = .8, list=FALSE)
+trainIndex <- createDataPartition(df$PE, p = .9, list=FALSE)
 df.training <- df[trainIndex, ]
 df.test <- df[-trainIndex, ]
 ```
@@ -177,11 +175,11 @@ accuracy(forecast, df.test)
 postResample(pred = forecast$mean, obs = df.test$PE)
 
 # Plot predictions versus reality in test set
-plot(df.test$PE, forecast$mean, main="Predictions of Energy Output versus Test Set", ylab="Energy Output (Prediction)", xlab="Energy Output (Test Set)")
+plot(df.test$PE, forecast$mean, main="Predictions of Energy Output versus Test Set\nLinear Regression Model", ylab="Energy Output (Prediction)", xlab="Energy Output (Test Set)")
 abline(0, 1, col='red')
 ```
 
-## Linear Model with Less Predictors
+## Linear Regression Model with Less Predictors
 
 Lets try taking out one of the highly correlated predictors and see if we can improve our model:
 
@@ -204,11 +202,52 @@ postResample(pred = forecast$mean, obs = df.test$PE)
 #abline(0, 1, col='red')
 ```
 
-Taking out the Ambient Temperature predictor, despite having high correlations to the other predictors, does not seem to help here.
+Taking out the Ambient Temperature predictor, despite having high correlations to the other predictors, does not seem to help here as it reduces $R^2$ and increases the $RMSE$.
 
 ## More Advanced Models
 
+The above model gets a pretty good result, but I'd like to see if another model would improve the correlation coefficient or reduce the RMSE. I decided on using an SVM:
+
+```{r}
+# Create a radial kernel SVM with some default params
+library(kernlab)
+svmFit <- ksvm(PE~ ., data=df, kernel="rbfdot", kpar="automatic", C=1, epsilon=0.1)
+
+# Predict on the test group and look at metrics
+svmPredict <- predict(svmFit, df.test)
+postResample(pred = svmPredict, obs = df.test$PE)
+
+# Plot predictions versus reality in test set
+plot(df.test$PE, svmPredict, main="Predictions of Energy Output versus Test Set\nSVM Model", ylab="Energy Output (Prediction)", xlab="Energy Output (Test Set)")
+abline(0, 1, col='red')
+```
+
+This model does a little bit better with a slightly lower RMSE and slightly higher $R^2$. This may indicate that the data truly is linear in nature and adding non-linearities will not help that much in improving the model.
+
 ## Results
+
+Generally, these resulting models look pretty good from an $RMSE$ and $R^2$ persepctive. The plots of the response from the model versus the actual response in the data do follow a straight line with the range of the residuals not being large compared to the data values:
+
+```{r}
+hist(svmPredict - df.test$PE, main="Residuals of SVM Model on Test Set", xlab="Residual")
+range <- range(df.test$PE)
+legend(8, 300, paste("range of output\n", range[1], " - ", range[2]))
+```
+
+As we can see, the residuals are pretty evenly distributed around 0, with the majority of residuals between -10 and 10, which is ~7% of the output range. I would say that these models have a very good distribution of errors.
+
+## Things to Think About for Future Modeling
+
+- What if the response (energy output) is related to these values but a 'lagged' version of the predictors? Meaning, a $\Delta T$ increase in temperature may not affect the energy output until enough time has passed for it to take effect. The lack of timing information, or data that is more 'realtime', prevents us from looking into this.
+
+- Seasonal effects: the time of the year mat affect energy output (consumer demand, weather / climate) but once again, lack of timing data prevents us from doing this. Otherwise, time series models may have been useful.
+
+## Errors
+
+Where can errors stem from in this model / problem:
+
+- Faulty sensors that are recording the 4 predictor values
+- As explained above, if there is any 'lag' in the relationship between  the predictors and eneergy output, we cannot model it here due to a lack of data
 
 ## Citations
 
